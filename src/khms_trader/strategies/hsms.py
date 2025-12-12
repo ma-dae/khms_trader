@@ -1,57 +1,90 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Any
+
 import pandas as pd
 
 from .base import BaseStrategy
-from ..data.features import add_hsms_features
+
+
+@dataclass
+class HSMSConfig:
+    """
+    단순화된 HSMS 전략 설정값 모음.
+
+    - ma_window: 추세 기준이 되는 이동평균 기간
+    - momentum_window: 모멘텀 계산 기간
+    - volume_lookback: 거래량 평균을 보는 기간
+    - volume_multiplier: 평균 거래량 대비 몇 배 이상일 때만 진입을 허용할지
+    """
+
+    ma_window: int = 20
+    momentum_window: int = 5
+    volume_lookback: int = 20
+    volume_multiplier: float = 1.1
 
 
 class HSMSStrategy(BaseStrategy):
     """
-    K-HSMS (Korea Hybrid Swing Momentum Strategy) 구현 클래스.
+    단순화 버전 HSMS 전략.
+
+    아이디어:
+      - 종가가 MA(20) 위에 있고
+      - 5일 모멘텀이 플러스이며
+      - 거래량이 최근 20일 평균의 1.1배 이상이면 -> 매수 신호
+
+      - 종가가 MA(20) 아래로 1% 이상 이탈하거나
+      - 5일 모멘텀이 마이너스로 전환되면 -> 매도 신호
     """
 
-    name = "k-hsms"
-
-    def __init__(
-        self,
-        *,
-        rsi_period: int = 14,
-        atr_period: int = 14,
-        vol_window: int = 20,
-        foreign_window: int = 3,
-    ) -> None:
-        self.rsi_period = rsi_period
-        self.atr_period = atr_period
-        self.vol_window = vol_window
-        self.foreign_window = foreign_window
+    def __init__(self, config: HSMSConfig | None = None) -> None:
+        self.config = config or HSMSConfig()
 
     def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        입력 df에 HSMS 지표와 매수/매도 시그널을 추가해 반환한다.
+        입력:
+          - df: 최소한 ['close', 'volume'] 컬럼이 있는 일봉 데이터
+                (이미 loader에서 컬럼명 통일했다고 가정)
 
-        요구 컬럼:
-            - 'close', 'high', 'low', 'volume', 'foreign_net_buy'
+        출력:
+          - df_with_signals: 원본 df에
+              ['ma', 'momentum', 'vol_avg', 'buy_signal', 'sell_signal']
+            컬럼이 추가된 DataFrame
         """
-        out = add_hsms_features(
-            df,
-            rsi_period=self.rsi_period,
-            atr_period=self.atr_period,
-            vol_window=self.vol_window,
-            foreign_window=self.foreign_window,
-        )
 
-        # 매수 신호: 추세 + RSI 50 재돌파 + 거래량 증가 + 외국인 수급
+        if df.empty:
+            return df.copy()
+
+        # 원본 손상 방지
+        df = df.copy()
+
+        c = self.config
+
+        # 1) 추세: MA(20)
+        df["ma"] = df["close"].rolling(c.ma_window).mean()
+
+        # 2) 모멘텀: 5일 전 대비 가격 차이
+        df["momentum"] = df["close"] - df["close"].shift(c.momentum_window)
+
+        # 3) 거래량 기준: 최근 20일 평균
+        df["vol_avg"] = df["volume"].rolling(c.volume_lookback).mean()
+
+        # 4) 매수 신호 조건
         buy_cond = (
-            out["trend_ok"]
-            & out["rsi_cross_50"]
-            & out["vol_ok"]
-            & out["foreign_trend_ok"]
+            (df["close"] > df["ma"])  # 추세 상방
+            & (df["momentum"] > 0)    # 모멘텀 플러스
+            & (df["volume"] > df["vol_avg"] * c.volume_multiplier)  # 거래량 증가
         )
-        out["buy_signal"] = buy_cond
 
-        # 매도 신호: 1차 버전은 ema50 이탈 시 매도
-        # (추후 ATR 트레일링 스탑으로 보완 예정)
-        out["sell_signal"] = out["close"] < out["ema50"]
+        # 5) 매도 신호 조건
+        sell_cond = (
+            (df["close"] < df["ma"] * 0.99)  # 추세 이탈(1% 이상)
+            | (df["momentum"] < 0)           # 모멘텀 마이너스
+        )
 
-        return out
+        # NaN → False 처리
+        df["buy_signal"] = buy_cond.fillna(False)
+        df["sell_signal"] = sell_cond.fillna(False)
+
+        return df

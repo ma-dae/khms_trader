@@ -1,0 +1,11 @@
+# config/setting.yaml
+
+# 사용할 브로커 타입
+# - paper                : 내부 모의 브로커 (PaperBroker)
+# - korea_invest_virtual : 한국투자증권 모의투자 계좌
+# - korea_invest_real    : 한국투자증권 실거래 계좌 (나중에)
+broker: "paper"
+
+# 기본 통화, 시장 등 (필요시 확장)
+market: "KRX"
+base_currency: "KRW"
