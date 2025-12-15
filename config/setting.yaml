@@ -9,3 +9,17 @@ broker: "paper"
 # 기본 통화, 시장 등 (필요시 확장)
 market: "KRX"
 base_currency: "KRW"
+
+
+# 수수료 정리
+trading:
+  fee_bps: 14.7
+  tax_bps: 15.0
+  slippage_bps: 10.0
+  fill_mode: next_open
+
+#레짐
+regime:
+benchmark_symbol: "229200"
+ma_window: 120
+slope_days: 10

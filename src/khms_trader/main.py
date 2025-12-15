@@ -41,12 +41,3 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 
-
-if __name__ == "__main__":
-    from khms_trader.backtest.hsms_single import HSMSSingleBacktester
-    from khms_trader.backtest.dataset_loader import load_raw
-
-    df = load_raw("005930")
-    bt = HSMSSingleBacktester("005930")
-    eq = bt.run(df)
-    print(eq.tail())

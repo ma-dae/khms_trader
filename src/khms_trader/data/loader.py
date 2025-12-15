@@ -73,7 +73,12 @@ def _read_ohlcv_csv(path: Path) -> pd.DataFrame:
         raise FileNotFoundError(f"CSV file not found: {path}")
 
     # date 컬럼명을 아직 모르므로 parse_dates는 읽고 나서 처리
-    df = pd.read_csv(path)
+    df = pd.read_csv(
+        path,
+        encoding="utf-8-sig",
+        engine="python",
+        on_bad_lines="skip",
+    )
 
     # 컬럼 표준화
     df = _standardize_columns(df)

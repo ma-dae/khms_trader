@@ -88,3 +88,72 @@ class HSMSStrategy(BaseStrategy):
         df["sell_signal"] = sell_cond.fillna(False)
 
         return df
+
+# ==============================
+# HSMS 2.0 (외국인 수급 필터 추가)
+# ==============================
+
+@dataclass
+class HSMS2Config(HSMSConfig):
+    """
+    HSMS 2.0 설정
+    - foreign_lookback: 외국인 순매수 합산 기간
+    - foreign_min_sum: 이 값 이상일 때만 매수 허용
+    """
+    foreign_lookback: int = 5
+    foreign_min_sum: float = 0.0
+
+
+class HSMS2Strategy(BaseStrategy):
+    """
+    HSMS 2.0 전략
+
+    HSMS 1.0 조건 +
+    - 최근 N일 외국인 순매수 합 > foreign_min_sum 일 때만 매수
+    - 외국인 순매수 합 < 0 이면 매도 신호
+    """
+
+    def __init__(self, config: HSMS2Config | None = None) -> None:
+        self.config = config or HSMS2Config()
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
+        if df.empty:
+            return df.copy()
+
+        df = df.copy()
+        c = self.config
+
+        # 1) 기본 HSMS 1.0 지표
+        df["ma"] = df["close"].rolling(c.ma_window).mean()
+        df["momentum"] = df["close"] - df["close"].shift(c.momentum_window)
+        df["vol_avg"] = df["volume"].rolling(c.volume_lookback).mean()
+
+        # 2) 외국인 순매수 롤링 합
+        if "foreign_net_buy" not in df.columns:
+            df["foreign_net_buy"] = 0.0
+
+        df["foreign_sum"] = (
+            df["foreign_net_buy"]
+            .rolling(c.foreign_lookback)
+            .sum()
+        )
+
+        # 3) 매수 조건
+        buy_cond = (
+            (df["close"] > df["ma"]) &
+            (df["momentum"] > 0) &
+            (df["volume"] > df["vol_avg"] * c.volume_multiplier) &
+            (df["foreign_sum"] > c.foreign_min_sum)
+        )
+
+        # 4) 매도 조건
+        sell_cond = (
+            (df["close"] < df["ma"] * 0.99) |
+            (df["momentum"] < 0) |
+            (df["foreign_sum"] < 0)
+        )
+
+        df["buy_signal"] = buy_cond.fillna(False)
+        df["sell_signal"] = sell_cond.fillna(False)
+
+        return df

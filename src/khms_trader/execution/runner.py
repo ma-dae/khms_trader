@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from ..broker.paper_broker import PaperBroker         # ✅ PaperBroker 직접 사용
+from ..broker import get_broker        
 from ..broker.base import OrderRequest
 from ..data.loader import load_symbol_ohlcv_with_foreign
 from ..data.screener import screen_top_by_volume_volatility
@@ -23,8 +23,8 @@ def run_paper_trading_auto_universe() -> None:
         print("[runner] 스크리너에서 선택된 심볼이 없습니다. 종료합니다.")
         return
 
-    # 2) ✅ 여기서 바로 PaperBroker 생성
-    broker = PaperBroker()
+    # 2) setting.yaml에 따른 브로커 생성 (paper, virtual, real)
+    broker = get_broker()
     strategy = HSMSStrategy()
 
     print("=== Paper Trading (Auto Universe) Start ===")

@@ -44,7 +44,11 @@ def _load_recent_data(symbol: str, lookback_days: int) -> pd.DataFrame:
 
     for path in candidates:
         if path.exists():
-            df = _read_ohlcv_csv(path)
+            try:
+                df = _read_ohlcv_csv(path)
+            except Exception as e:
+                print(f"[screener] CSV parse failed: symbol={symbol}, path={path}, err={e}")
+                return pd.DataFrame()
             # 최신 일 기준으로 lookback_days만 슬라이싱
             if len(df) == 0:
                 return df

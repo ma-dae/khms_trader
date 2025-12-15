@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List
 
@@ -175,68 +175,87 @@ class KoreaInvestDataClient:
         adj_price: bool = True,
     ) -> pd.DataFrame:
         """
-        국내주식기간별시세(일/주/월/년) API를 이용해
-        일봉 OHLCV 데이터를 조회한다.
-
-        - symbol: 종목코드 (예: "005930")
-        - start_date, end_date: "YYYYMMDD" 형식 문자열
+        KIS inquire-daily-itemchartprice는 1회 호출 최대 100건 제한이 있으므로
+        end_date를 뒤로 당기며 페이징 수집한다.
         """
 
         path = "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice"
         url = f"{self._base_url}{path}"
+        headers = self._headers(tr_id="FHKST03010100")
 
-        params = {
-            "FID_COND_MRKT_DIV_CODE": "J",        # J: 주식
-            "FID_INPUT_ISCD": symbol,
-            "FID_INPUT_DATE_1": start_date,
-            "FID_INPUT_DATE_2": end_date,
-            "FID_PERIOD_DIV_CODE": "D",           # D: 일봉
-            "FID_ORG_ADJ_PRC": "1" if adj_price else "0",
-        }
+        start_dt = datetime.strptime(start_date, "%Y%m%d").date()
+        cur_end_dt = datetime.strptime(end_date, "%Y%m%d").date()
 
-        headers = self._headers(tr_id="FHKST03010100")  # 기간별 시세 TR ID
+        all_rows: list[pd.DataFrame] = []
+        last_oldest_dt = None
+        
+        while cur_end_dt >= start_dt:
+            params = {
+                "FID_COND_MRKT_DIV_CODE": "J",        # J: 주식
+                "FID_INPUT_ISCD": symbol,
+                "FID_INPUT_DATE_1": start_dt.strftime("%Y%m%d"),
+                "FID_INPUT_DATE_2": cur_end_dt.strftime("%Y%m%d"),
+                "FID_PERIOD_DIV_CODE": "D",           # D: 일봉
+                "FID_ORG_ADJ_PRC": "1" if adj_price else "0",
+            }
+            
 
-        self._ensure_access_token()
-        resp = safe_request_with_retry(
-            self._session,
-            url,
-            headers=headers,
-            params=params,
-            max_retry=5,
-            sleep_sec=0.3,
-        )
-        data = resp.json()
-
-        # 응답 구조에 따라 'output2' 또는 'output'에 리스트가 들어있음
-        output_list = data.get("output2") or data.get("output") or []
-        if not output_list:
-            return pd.DataFrame(columns=["date", "open", "high", "low", "close", "volume"])
-
-        rows = []
-        for row in output_list:
-            date_str = row.get("stck_bsop_date")
-            if not date_str:
-                continue
-
-            try:
-                date_val = datetime.strptime(date_str, "%Y%m%d").date()
-            except ValueError:
-                continue
-
-            rows.append(
-                {
-                    "date": date_val,
-                    "open": float(row.get("stck_oprc", 0) or 0),
-                    "high": float(row.get("stck_hgpr", 0) or 0),
-                    "low": float(row.get("stck_lwpr", 0) or 0),
-                    "close": float(row.get("stck_clpr", 0) or 0),
-                    "volume": float(row.get("acml_vol", 0) or 0),
-                }
+        
+            resp = safe_request_with_retry(
+                self._session,
+                url,
+                headers=headers,
+                params=params,
+                max_retry=5,
+                sleep_sec=0.3,
             )
+            data = resp.json()
+            output_list = data.get("output2") or data.get("output") or []
+            if not output_list:
+                break
 
-        df = pd.DataFrame(rows)
-        df.sort_values("date", inplace=True)
-        df.reset_index(drop=True, inplace=True)
+
+            rows = []
+            for row in output_list:
+                date_str = row.get("stck_bsop_date")
+                if not date_str:
+                    continue
+
+                try:
+                    d = datetime.strptime(date_str, "%Y%m%d").date()
+                except ValueError:
+                    continue
+                rows.append(
+                    {
+                        "date": d,
+                        "open": float(row.get("stck_oprc", 0) or 0),
+                        "high": float(row.get("stck_hgpr", 0) or 0),
+                        "low": float(row.get("stck_lwpr", 0) or 0),
+                        "close": float(row.get("stck_clpr", 0) or 0),
+                        "volume": float(row.get("acml_vol", 0) or 0),
+                    }
+                )
+        
+            chunk = pd.DataFrame(rows)
+            if chunk.empty:
+                break
+
+            chunk = chunk.sort_values("date").reset_index(drop=True)
+            oldest = chunk["date"].iloc[0]
+            newest = chunk["date"].iloc[-1]
+            all_rows.append(chunk)
+
+            if last_oldest_dt is not None and oldest >= last_oldest_dt:
+                break
+            last_oldest_dt = oldest
+
+            cur_end_dt = oldest - timedelta(days=1)
+
+        if not all_rows:
+            return pd.DataFrame(columns=["date", "open", "high", "low", "close", "volume"])
+    
+        df = pd.concat(all_rows, ignore_index=True).drop_duplicates(subset=["date"])
+        df = df.sort_values("date").reset_index(drop=True)
         return df
 
     # ----------------------------

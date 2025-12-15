@@ -1,85 +1,132 @@
 # scripts/test_hsms.py
-# --------------------------------------------
-# HSMS 단일 종목 백테스트 실행 스크립트
-# --------------------------------------------
 
-import sys
-from pathlib import Path
+from __future__ import annotations
 
-import matplotlib.pyplot as plt
+import argparse
+import pandas as pd
 
-# 1) 프로젝트 / src 경로 세팅
-CURRENT_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = CURRENT_DIR.parent
-SRC_DIR = PROJECT_ROOT / "src"
-
-if str(SRC_DIR) not in sys.path:
-    sys.path.append(str(SRC_DIR))
-
-# 2) khms_trader 모듈 import
+from khms_trader.config import load_settings
 from khms_trader.backtest.dataset_loader import load_raw
-from khms_trader.backtest.hsms_single import HSMSSingleBacktester
 from khms_trader.backtest.metrics import (
     compute_total_return,
     compute_max_drawdown,
     compute_win_rate,
+    compute_sharpe_ratio,
 )
+from khms_trader.backtest.hsms_single import HSMSSingleBacktester
+from khms_trader.backtest.configs import BacktestConfig
+from khms_trader.backtest.bt_config_factory import make_test_cases
 from khms_trader.strategies.hsms import HSMSStrategy, HSMSConfig
 
 
-SYMBOL = "005930"
-CASH = 10_000_000
-CONFIG = HSMSConfig(
-    ma_window=20,
-    momentum_window=5,
-    volume_lookback=20,
-    volume_multiplier=1.1,
-)
+# -----------------------------
+# 실험 대상 심볼 (단일 종목 sanity check)
+# -----------------------------
+SYMBOL = "376900"   # 코스닥 기준 종목
 
 
-def main():
-    print(f"[TEST] HSMS 단일 종목 백테스트 — 종목: {SYMBOL}")
+def run_one_case(
+    name: str,
+    bt_config: BacktestConfig,
+    df: pd.DataFrame,
+    initial_cash: int,
+) -> dict:
+    """
+    단일 케이스 실행 및 성과 요약
+    """
+    strategy = HSMSStrategy(
+        HSMSConfig(
+            ma_window=20,
+            momentum_window=5,
+            volume_lookback=20,
+            volume_multiplier=1.1,
+        )
+    )
 
-    # 1) 데이터 로딩
-    df = load_raw(SYMBOL)
-    print(f"[DATA] raw 로딩 완료: {len(df)} rows")
+    bt = HSMSSingleBacktester(
+        symbol=SYMBOL,
+        initial_cash=initial_cash,
+        strategy=strategy,
+        bt_config=bt_config,
+    )
 
-    # 2) 전략 & 백테스터 준비
-    strategy = HSMSStrategy(CONFIG)
-    bt = HSMSSingleBacktester(symbol=SYMBOL, initial_cash=CASH, strategy=strategy)
-
-    # 3) 백테스트 실행
     equity_df = bt.run(df)
     trades = bt.get_trades()
 
-    print("\n[RESULT] equity_df tail(10):")
-    print(equity_df.tail(10))
-
-    # 4) 성과 지표 계산
-    total_ret = compute_total_return(equity_df)
+    total_return = compute_total_return(equity_df)
     mdd = compute_max_drawdown(equity_df)
     win_rate = compute_win_rate(trades)
+    sharpe = compute_sharpe_ratio(equity_df)
+    final_equity = float(equity_df["equity"].iloc[-1])
+    n_trades = len([t for t in trades if t.side == "SELL"])
 
-    print("\n[METRICS]")
-    print(f" - 초기 자산: {CASH:,.0f}원")
-    print(f" - 최종 자산: {equity_df['equity'].iloc[-1]:,.0f}원")
-    print(f" - 총 수익률: {total_ret * 100:.2f}%")
-    print(f" - 최대 낙폭(MDD): {mdd * 100:.2f}%")
-    if win_rate is not None:
-        print(f" - 승률(매도 기준): {win_rate * 100:.2f}%")
-    else:
-        print(" - 승률: 트레이드 없음")
+    return {
+        "case": name,
+        "fill_mode": bt_config.fill_mode,
+        "fee_bps": bt_config.fee_bps,
+        "tax_bps": bt_config.tax_bps,
+        "slippage_bps": bt_config.slippage_bps,
+        "total_return": total_return,
+        "mdd": mdd,
+        "win_rate": win_rate,
+        "sharpe": sharpe,
+        "final_equity": final_equity,
+        "trades": n_trades,
+    }
 
-    # 5) 자산곡선 시각화
-    plt.figure(figsize=(12, 6))
-    plt.plot(equity_df["date"], equity_df["equity"], label="Equity")
-    plt.title(f"HSMS Backtest Equity Curve — {SYMBOL}")
-    plt.xlabel("Date")
-    plt.ylabel("Equity (KRW)")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--initial_cash", type=int, default=10_000_000)
+    args = parser.parse_args()
+
+    # -----------------------------
+    # 1) 데이터 로딩
+    # -----------------------------
+    df = load_raw(SYMBOL)
+    if df.empty:
+        raise RuntimeError(f"{SYMBOL}: raw 데이터가 비어 있습니다.")
+
+    # -----------------------------
+    # 2) 설정 기반 테스트 케이스 생성
+    # -----------------------------
+    settings = load_settings()
+    cases = make_test_cases(settings=settings)
+
+    # -----------------------------
+    # 3) 케이스별 실행
+    # -----------------------------
+    results = []
+    for name, cfg in cases:
+        print(f"\n=== Running {name} ===")
+        res = run_one_case(
+            name=name,
+            bt_config=cfg,
+            df=df,
+            initial_cash=args.initial_cash,
+        )
+        print(res)
+        results.append(res)
+
+    # -----------------------------
+    # 4) 요약 출력
+    # -----------------------------
+    df_res = pd.DataFrame(results)
+    print("\n=== Summary ===")
+    print(
+        df_res[
+            [
+                "case",
+                "fill_mode",
+                "total_return",
+                "mdd",
+                "win_rate",
+                "sharpe",
+                "trades",
+                "final_equity",
+            ]
+        ]
+    )
 
 
 if __name__ == "__main__":

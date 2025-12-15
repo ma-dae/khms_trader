@@ -21,7 +21,6 @@ def get_broker() -> BaseBroker:
       - korea_invest_real
     """
     settings = load_settings()
-    secrets = load_secrets()
 
     broker_type: BrokerType = settings.get("broker", "paper")  # 기본값: paper
 
@@ -29,6 +28,7 @@ def get_broker() -> BaseBroker:
         return PaperBroker()
 
     elif broker_type in ("korea_invest_virtual", "korea_invest_real"):
+        secrets = load_secrets()
         ki_conf = secrets.get("korea_invest", {})
         if broker_type == "korea_invest_virtual":
             app_key = ki_conf.get("app_key_virtual")

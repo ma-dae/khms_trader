@@ -18,7 +18,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.append(str(SRC_DIR))
 
 from khms_trader.backtest.hsms_universe import HSMSUniverseBacktester
-from khms_trader.strategies.hsms import HSMSConfig
+from khms_trader.strategies.hsms import HSMSConfig, HSMSStrategy
 
 
 def main():
@@ -70,7 +70,8 @@ def main():
         start_date=start_date,
         end_date=end_date,
         initial_cash=10_000_000,
-        config=config,
+        strategy_cls = HSMSStrategy,
+        strategy_config=config,
     )
 
     df_res = bt_uni.run()
