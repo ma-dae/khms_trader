@@ -1,10 +1,9 @@
 # config/setting.yaml
 
-# 사용할 브로커 타입
-# - paper                : 내부 모의 브로커 (PaperBroker)
-# - korea_invest_virtual : 한국투자증권 모의투자 계좌
-# - korea_invest_real    : 한국투자증권 실거래 계좌 (나중에)
-broker: "paper"
+broker:
+  provider: korea_invest
+  env: virtual #virtual | real
+
 
 # 기본 통화, 시장 등 (필요시 확장)
 market: "KRX"
@@ -20,6 +19,13 @@ trading:
 
 #레짐
 regime:
-benchmark_symbol: "229200"
-ma_window: 120
-slope_days: 10
+  benchmark_symbol: "229200"
+  ma_window: 120
+  slope_days: 10
+
+# 라이브
+live: 
+  loop_sec: 60
+  max_positions: 8
+  order_cash_per_trade: 1500000
+

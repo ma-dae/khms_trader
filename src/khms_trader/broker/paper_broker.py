@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict
 
 from .base import BaseBroker, OrderRequest, OrderResult
 
@@ -23,23 +23,24 @@ class PaperBroker(BaseBroker):
         self._order_seq += 1
         return f"PB-{self._order_seq:08d}"
 
-    # --- 인터페이스 구현 ---
+    # --- BaseBroker 인터페이스 구현 ---
 
     def get_cash(self) -> float:
-        return self.cash
+        return float(self.cash)
 
     def get_positions(self) -> Dict[str, int]:
         return dict(self.positions)
 
     def get_position(self, symbol: str) -> int:
-        return self.positions.get(symbol, 0)
+        return int(self.positions.get(symbol, 0))
 
     def place_order(self, req: OrderRequest) -> OrderResult:
         """
         시장/지정가 구분 없이, 요청된 price에 전량 체결된다고 가정.
-
-        runner 쪽에서 현재가(또는 종가)를 price에 넣어서 넘겨주는 형태로 사용.
+        runner 쪽에서 현재가(또는 종가/시가)를 price에 넣어서 넘겨주는 형태로 사용.
         """
+        side = str(req.side).upper()
+
         if req.quantity <= 0:
             return OrderResult(
                 success=False,
@@ -52,39 +53,49 @@ class PaperBroker(BaseBroker):
                 message="PaperBroker: price must be provided for simulation",
             )
 
-        cost = req.price * req.quantity
+        price = float(req.price)
+        qty = int(req.quantity)
+        cost = price * qty
 
-        if req.side == "BUY":
-            # 현금 부족 체크
+        if side == "BUY":
             if self.cash < cost:
                 return OrderResult(
                     success=False,
-                    message=f"insufficient cash: required={cost}, cash={self.cash}",
+                    message=f"insufficient cash: required={cost:.2f}, cash={self.cash:.2f}",
                 )
-            # 매수 체결
             self.cash -= cost
-            self.positions[req.symbol] = self.positions.get(req.symbol, 0) + req.quantity
+            self.positions[req.symbol] = int(self.positions.get(req.symbol, 0)) + qty
 
-        elif req.side == "SELL":
-            pos = self.positions.get(req.symbol, 0)
-            if pos < req.quantity:
+        elif side == "SELL":
+            pos = int(self.positions.get(req.symbol, 0))
+            if pos < qty:
                 return OrderResult(
                     success=False,
-                    message=f"insufficient position: have={pos}, try_sell={req.quantity}",
+                    message=f"insufficient position: have={pos}, try_sell={qty}",
                 )
-            # 매도 체결
             self.cash += cost
-            new_pos = pos - req.quantity
+            new_pos = pos - qty
             if new_pos == 0:
                 self.positions.pop(req.symbol, None)
             else:
                 self.positions[req.symbol] = new_pos
 
+        else:
+            return OrderResult(
+                success=False,
+                message=f"invalid side: {req.side} (expected BUY/SELL)",
+            )
+
         order_id = self._next_order_id()
         return OrderResult(
             success=True,
             order_id=order_id,
-            filled_quantity=req.quantity,
-            avg_price=req.price,
-            message="filled (paper)",
+            message=f"filled (paper) side={side} qty={qty} price={price:.2f}",
+            raw={
+                "symbol": req.symbol,
+                "side": side,
+                "quantity": qty,
+                "price": price,
+                "cost": cost,
+            },
         )

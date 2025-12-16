@@ -1,59 +1,62 @@
+# src/khms_trader/broker/base.py
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal, Optional, Dict
+from typing import Any, Dict, Optional
 
-Side = Literal['BUY', 'SELL']
 
-@dataclass
+@dataclass(frozen=True)
 class OrderRequest:
     """
-    주문 요청 정보.
-    모의투자/실전 브로커 모두 이 구조를 사용한다.
+    주문 요청 모델 (브로커 공통)
+    - symbol: 종목코드 (예: "229200")
+    - side: "BUY" | "SELL"
+    - quantity: 주문수량 (정수)
+    - price: 주문가격 (지정가). 시장가면 None 또는 0 사용(브로커 구현에서 해석)
     """
-
     symbol: str
-    side: Side
+    side: str
     quantity: int
-    price: Optional[float] = None  # None이면 시장가(실전 브로커에서 처리)
+    price: Optional[float] = None
 
 
 @dataclass
 class OrderResult:
     """
-    주문 결과 정보.
+    주문 결과 모델 (브로커 공통)
+    - success: 성공 여부
+    - message: 메시지
+    - order_id: 주문번호(있으면)
+    - raw: 브로커 원본 응답(디버깅용)
     """
-
     success: bool
-    order_id: Optional[str] = None
-    filled_quantity: int = 0
-    avg_price: Optional[float] = None
     message: str = ""
+    order_id: Optional[str] = None
+    raw: Optional[Dict[str, Any]] = None
 
 
 class BaseBroker(ABC):
     """
     브로커 공통 인터페이스.
-
-    PaperBroker, KoreaInvestBroker 모두 이 클래스를 상속해서 구현한다.
+    PaperBroker / KoreaInvestBroker 등이 이를 구현.
     """
 
     @abstractmethod
     def get_cash(self) -> float:
-        """가용 현금 잔고 조회."""
+        """현재 예수금(또는 사용 가능 현금)"""
         raise NotImplementedError
 
     @abstractmethod
     def get_positions(self) -> Dict[str, int]:
-        """현재 보유 종목과 수량 조회."""
+        """보유 종목 수량 딕셔너리: {symbol: qty}"""
         raise NotImplementedError
 
-    @abstractmethod
     def get_position(self, symbol: str) -> int:
-        """특정 종목 보유 수량 조회."""
-        raise NotImplementedError
+        """특정 종목 보유 수량"""
+        return int(self.get_positions().get(symbol, 0))
 
     @abstractmethod
     def place_order(self, req: OrderRequest) -> OrderResult:
-        """주문 실행."""
+        """주문 실행"""
         raise NotImplementedError
