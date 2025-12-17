@@ -1,188 +1,131 @@
-KHMS Trader (KIS Virtual · Next-Open Strategy)
-=============================================
+KHMS-TRADER Logo
 
-본 프로젝트는 한국투자증권(KIS) 모의투자(virtual) 환경에서
-Next-Open(다음날 시가 기준) 전략을 수동 또는 자동으로 운영하기 위한
-주식 자동매매 및 대시보드 프로젝트입니다.
+License: MIT
+Language: Python
+Broker: Korea Investment (KIS) Virtual
+Status: Research & Trading System
 
-전략 로직, 주문 실행, 대시보드, 알림을 분리하여
-운영 안정성과 디버깅 용이성을 최우선으로 설계했습니다.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔍 KHMS-TRADER
+Next-Open 기반 한국 주식 자동매매 시스템
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+📊 한국 주식시장(KOSDAQ 중심)을 대상으로  
+다음 거래일 시가 기준(Next-Open) 전략을 연구·운영하기 위한  
+모듈형 자동매매 및 시뮬레이션 프로젝트입니다.
 
-1. 프로젝트 개요
------------------
-- 전략 방식: Next-Open (전일 장 마감 후 plan 생성 → 다음날 시가 실행)
-- 대상 시장: KOSDAQ
-- 브로커 구성
-  · 운영/대시보드 조회: korea_invest (virtual)
-  · 테스트/드라이런: paper 또는 virtual
-- 주요 기능
-  · Plan 생성
-  · 주문 실행
-  · 상태 점검
-  · Streamlit 대시보드
-  · 텔레그램 알림(선택)
+본 프로젝트는 **사고 없는 자동매매 구조 설계**를 최우선 목표로 하며,  
+전략 생성, 주문 실행, 계좌 상태 조회, 대시보드를 명확히 분리하여  
+실험과 실제 운영을 안전하게 구분합니다.
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✨ 프로젝트 특징
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-2. 디렉토리 구조
------------------
+• Next-Open 전략 기반 (전일 장 마감 → 다음날 시가 실행)
+• 한국투자증권(KIS) 모의투자(virtual) API 연동
+• Plan 생성 / 주문 실행 완전 분리 구조
+• 보유 없는 종목 sell 자동 차단
+• Paper / Virtual / Real 확장 가능한 브로커 구조
+• Streamlit 기반 실시간 대시보드
+• 텔레그램 알림 연동 (선택)
+• 실험/운영 상태 혼선 방지 설계
 
-khms_trader/
-  src/
-    khms_trader/
-      broker/
-        - KIS / Paper broker 구현
-      data/
-        - 데이터 수집 로직
-      execution/
-        - plan 실행 로직
-      notifications/
-        - Telegram notifier
-      config/
-        - settings / secrets loader
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📁 시스템 구성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  scripts/
-    prepare_next_open_plan.py
-      - 다음 거래일 plan 생성
-    execute_next_open_plan.py
-      - plan 기반 실제 주문 실행
-    run_virtual_live.py
-      - 계좌 상태 점검 / 간이 실행
-    run_virtual_next_open_forever.py
-      - 상시 스케줄러
-    run_dashboard.py
-      - Streamlit 대시보드
-    tools/
-      sell_out_legacy.py
-        - 관리자용 계좌 정리 스크립트
+Core Engine
+- 전략 신호 생성
+- Next-Open plan 생성
+- 주문 실행 및 체결 처리
+- 계좌 상태 조회
 
-  plans/
-    - 생성된 next_open plan 파일
+Execution Layer
+- prepare_next_open_plan.py
+- execute_next_open_plan.py
+- run_virtual_live.py
+- run_virtual_next_open_forever.py
 
-  logs/
-    - 실행 로그
+Visualization
+- Streamlit 실시간 대시보드
+- 현금 / 보유 / 총자산 분리 표시
+- plan / 로그 / 상태 시각화
 
-  data/
-    universe/
-      - 유니버스 CSV
+Notification
+- Telegram 알림 (비필수)
+- 네트워크 오류 시에도 매매 로직 비중단
 
-  reports/
-    - 이벤트 / 리포트
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📖 프로젝트 개요
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  settings.yaml
-    - 일반 설정
+KHMS-TRADER는 한국 주식시장 자동매매를 단순히 “수익률”이 아니라  
+**운영 안정성·재현성·디버깅 가능성** 관점에서 접근한 연구용 트레이딩 시스템입니다.
 
-  secrets.yaml
-    - API / Telegram 비밀정보 (gitignore)
+전략 아이디어 검증 → 시뮬레이션 → 모의계좌 운영 → 실계좌 확장을  
+하나의 코드베이스에서 안전하게 수행할 수 있도록 설계되었습니다.
 
-  README.txt
+모든 매매는 “계획(plan) → 실행(execute)”의 2단계 구조를 따르며,  
+처음 실행 시에도 사고 주문이 발생하지 않도록 방어 로직을 기본 내장합니다.
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️ 운영 방식
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+[수동 운영]
 
-3. 환경 설정
--------------
-Python 환경:
-  conda activate khms_trader
+1. 매일 장 마감 전 (15:40)
+   - 다음 거래일 plan 생성
 
-settings.yaml 예시:
-  broker.provider: paper | korea_invest
-  broker.env: virtual | real
-  trading.fill_mode: next_open
+2. 다음날 장 시작 직후 (09:01)
+   - plan 기반 실제 주문 실행
 
-secrets.yaml:
-  - korea_invest virtual 계좌 정보
-  - telegram token / chat_id
+[자동 운영]
 
+- 상시 스케줄러 실행
+- 지정 시각에 plan 생성 및 실행 자동 수행
 
-4. 운영 방식
--------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 대시보드
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[수동 운영 - 권장]
+• KIS 모의계좌 기준 실시간 상태 조회
+• 현금 / 보유 / 총자산 명확 분리
+• 최신 plan 및 실행 로그 확인
+• 실험 흔적(PaperBroker)과 운영 계좌 완전 분리
 
-(1) 매일 장 마감 전 (15:40)
-  python scripts/prepare_next_open_plan.py --universe-limit 200 --qty 1
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧠 설계 원칙 (중요)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-(2) 다음날 장 시작 직후 (09:01)
-  python scripts/execute_next_open_plan.py
+• “sell 신호 ≠ 실제 매도”
+• 보유하지 않은 종목은 절대 매도하지 않음
+• 실험 상태와 운영 계좌 상태 철저히 분리
+• 관리자용 스크립트는 일반 운영 경로에서 분리
+• 오류 발생 시에도 계좌 보호 우선
 
-※ 보유하지 않은 종목의 sell 신호는 자동으로 skip됨
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚧 현재 상태
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+✔ KIS Virtual 연동 완료  
+✔ Next-Open 파이프라인 안정화  
+✔ 대시보드 및 상태 조회 정상  
+✔ 초기 계좌 정리 및 운영 환경 확정  
+✔ 수동 / 자동 운영 루트 분리 완료  
 
-[자동 운영 - 상시 스케줄러]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔮 향후 확장 계획
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  python scripts/run_virtual_next_open_forever.py --times 15:40 09:01 --qty 1 --universe-limit 200
+• 실계좌(real) 전환
+• 전략 다중화
+• ledger 기반 포지션 관리
+• 성과 분석 리포트 자동화
+• AI 기반 신호 생성 모듈 결합
 
-- 15:40: plan 생성
-- 09:01: plan 실행
-- 터미널 점유 상태는 정상 동작
-
-
-5. 상태 점검 및 대시보드
------------------------
-
-대시보드 실행:
-  streamlit run scripts/run_dashboard.py
-
-- 항상 KIS virtual 계좌 기준 조회
-- 표시 항목
-  · 현금 (dnca_tot_amt)
-  · 보유 종목/수량
-  · 총자산 (tot_evlu_amt)
-  · 최신 plan 및 로그
-
-※ Streamlit 실행 시 해당 터미널은 점유됨
-
-
-주문 없이 상태 확인:
-  python scripts/run_virtual_live.py --universe-limit 10
-
-
-6. 계좌 초기화 및 예외 대응
----------------------------
-
-- KIS 모의계좌는 로컬에서 리셋 불가
-- 원치 않는 보유 발생 시:
-  1) 전량 매도 (권장)
-  2) legacy holding으로 분리 관리
-
-관리자용 스크립트:
-  scripts/tools/sell_out_legacy.py
-  - 일반 운영 중 사용 금지
-  - 계좌 복구/정리 시에만 사용
-
-
-7. 텔레그램 알림
-----------------
-- settings/secrets 기반 자동 로드
-- 네트워크 환경에 따라 실패 가능
-- 알림 실패 시에도 매매 로직은 중단되지 않음
-
-
-8. 핵심 운영 원칙
-------------------
-- plan 생성과 실행은 반드시 분리
-- sell 신호 ≠ 실제 매도
-- 실험 상태와 운영 계좌 분리
-- 처음 실행 시에도 사고 주문 방지
-
-
-9. 현재 상태 요약
-------------------
-- KIS virtual 연동 정상
-- Next-Open 파이프라인 정상
-- 대시보드 KIS 기준 고정
-- 현금 / 총자산 분리 완료
-- legacy 보유 정리 완료
-- 수동/자동 운영 루트 확정
-
-
-10. 향후 확장 아이디어
-----------------------
-- 실계좌(real) 전환
-- ledger 기반 포지션 관리
-- 주문 실패 자동 재시도
-- 전략 분리
-- 성과 시각화 대시보드 확장
-
-
-본 프로젝트는 "사고 안 나는 자동매매"를 최우선 목표로 설계되었습니다.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+본 프로젝트는  
+“한 번 더 수익을 내기보다, 한 번의 사고를 막는 자동매매”를 목표로 합니다.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
