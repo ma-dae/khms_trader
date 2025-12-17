@@ -56,24 +56,50 @@ def _list_log_files() -> List[Path]:
 
 def _get_broker_state() -> Tuple[Optional[float], Dict[str, int], Optional[str]]:
     """
-    broker를 직접 조회하되, 대시보드가 죽지 않게 예외를 문자열로 반환.
+    대시보드 전용 규칙:
+    - trading broker 설정(broker.provider/env)과 무관하게 KIS VIRTUAL(모의) 계좌 상태를 조회한다.
+    - 어떤 예외가 나도 (None, {}, "error...") 형태로 반드시 반환해서 대시보드가 죽지 않게 한다.
     """
     try:
         from khms_trader.config import load_settings
-        from khms_trader.broker.factory import make_broker
+        from khms_trader.broker.korea_invest_api import KoreaInvestBroker
 
         s = load_settings()
-        broker_cfg = (s.get("broker") or {})
-        env = str(broker_cfg.get("env", "")).lower()
-        provider = str(broker_cfg.get("provider", ""))
 
-        broker = make_broker()
+        ki = s.get("korea_invest") or {}
+        v = ki.get("virtual") or {}
+
+        required = ["app_key", "app_secret", "account_no", "account_product_code"]
+        missing = [k for k in required if not v.get(k)]
+        if missing:
+            return None, {}, f"broker_error: missing korea_invest.virtual keys={missing}"
+
+        broker = KoreaInvestBroker(
+            app_key=str(v.get("app_key", "")),
+            app_secret=str(v.get("app_secret", "")),
+            account_no=str(v.get("account_no", "")),
+            account_product_code=str(v.get("account_product_code", "")),
+            base_url=str(v.get("base_url", "")) if v.get("base_url") is not None else "",
+            virtual=True,
+        )
+
         cash = float(broker.get_cash())
         positions = broker.get_positions() if hasattr(broker, "get_positions") else {}
+        positions = positions or {}
 
-        # 안전을 위해 현재 설정도 같이 보여줌
-        meta = f"provider={provider}, env={env}"
-        return cash, {str(k).zfill(6): int(v) for k, v in (positions or {}).items()}, meta
+        # (선택) 총평가 같이 표기
+        total_value = None
+        if hasattr(broker, "get_total_value"):
+            try:
+                total_value = float(broker.get_total_value())
+            except Exception:
+                total_value = None
+
+        meta = "provider=korea_invest, env=virtual (forced by dashboard)"
+        if total_value is not None:
+            meta += f" | total_value={total_value:,.0f} KRW"
+
+        return cash, {str(k).zfill(6): int(v) for k, v in positions.items()}, meta
 
     except Exception as e:
         return None, {}, f"broker_error: {type(e).__name__}: {e}"

@@ -154,17 +154,21 @@ class KoreaInvestBroker(BaseBroker):
 
         data = self._get("/uapi/domestic-stock/v1/trading/inquire-balance", headers=headers, params=params)
         out2 = data.get("output2")
+        print("[DEBUG][inquire-balance] output2 type:", type(out2))
 
         if isinstance(out2, list):
             if not out2:
                 raise RuntimeError("inquire-balance output2 is empty list")
             out2 = out2[0]
         
+        print("[DEBUG][inquire-balance] output2 keys:", list(out2.keys()))
+
+
         if not isinstance(out2, dict):
             raise RuntimeError(f"Unexpected output2 type: {type(out2)}")
 
-        # 후보 필드들(환경별 상이): dnca_tot_amt / prvs_rcdl_excc_amt / tot_evlu_amt 등
-        for key in ["dnca_tot_amt", "prvs_rcdl_excc_amt", "cma_evlu_amt", "tot_evlu_amt"]:
+        # 후보 필드들(환경별 상이): dnca_tot_amt / prvs_rcdl_excc_amt 
+        for key in ["dnca_tot_amt", "prvs_rcdl_excc_amt", "cma_evlu_amt"]:
             v = out2.get(key)
             if v is not None and str(v).strip() != "":
                 try:
@@ -173,6 +177,45 @@ class KoreaInvestBroker(BaseBroker):
                     pass
 
         raise RuntimeError(f"Cannot parse cash from inquire-balance. resp_keys={list(out2.keys())}")
+    
+    def get_total_value(self) -> float:
+        """
+        총자산/평가금액: inquire-balance output2의 tot_evlu_amt를 사용.
+        """
+        tr_id = "VTTC8434R" if self.virtual else "TTTC8434R"
+        headers = self._auth_headers(tr_id=tr_id)
+
+        params = {
+            "CANO": self._cano,
+            "ACNT_PRDT_CD": self._acnt_prdt_cd,
+            "AFHR_FLPR_YN": "N",
+            "OFL_YN": "",
+            "INQR_DVSN": "02",
+            "UNPR_DVSN": "01",
+            "FUND_STTL_ICLD_YN": "N",
+            "FNCG_AMT_AUTO_RDPT_YN": "N",
+            "PRCS_DVSN": "00",
+            "CTX_AREA_FK100": "",
+            "CTX_AREA_NK100": "",
+        }
+
+        data = self._get("/uapi/domestic-stock/v1/trading/inquire-balance", headers=headers, params=params)
+        out2 = data.get("output2")
+
+        if isinstance(out2, list):
+            if not out2:
+                raise RuntimeError("inquire-balance output2 is empty list")
+            out2 = out2[0]
+
+        if not isinstance(out2, dict):
+            raise RuntimeError(f"Unexpected output2 type: {type(out2)}")
+
+        v = out2.get("tot_evlu_amt")
+        if v is None or str(v).strip() == "":
+            raise RuntimeError(f"tot_evlu_amt missing. keys={list(out2.keys())}")
+
+        return float(v)
+
 
     def get_positions(self) -> Dict[str, int]:
         """
@@ -237,7 +280,7 @@ class KoreaInvestBroker(BaseBroker):
             "CANO": self._cano,
             "ACNT_PRDT_CD": self._acnt_prdt_cd,
             "PDNO": req.symbol,
-            "ORD_DVSN": "01",
+            "ORD_DVSN": "01" if req.price is not None else "00",
             "ORD_QTY": str(int(req.quantity)),
             "ORD_UNPR": str(int(req.price)) if req.price is not None else "0",
         }
