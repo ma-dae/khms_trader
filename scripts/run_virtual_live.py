@@ -111,7 +111,7 @@ def _send_telegram(s: dict, text: str) -> None:
         return
     try:
         from khms_trader.notifications.telegram import TelegramNotifier  # 프로젝트에 맞춰 존재한다고 가정
-        notifier = TelegramNotifier(token=tg["token"], chat_id=tg["chat_id"])
+        notifier = TelegramNotifier()
         notifier.send(text)
     except Exception as e:
         print(f"[WARN] telegram send failed: {e}")

@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List
+from typing import List, Dict
 
 import pandas as pd
 import requests
@@ -37,39 +37,32 @@ class KISSecrets:
     account_product_code: str | None = None
 
 
-def load_kis_secrets(path: Path | None = None) -> KISSecrets:
+def load_kis_secrets() -> KISSecrets:
     """
-    config/secrets.yaml에서 kis.* 정보를 로딩한다.
-
-    기대하는 secrets.yaml 구조 예시:
-
-    kis:
-      app_key: "모의투자_APP_KEY"
-      app_secret: "모의투자_APP_SECRET"
-      virtual: true
-      account_no: "12345678"
-      account_product_code: "01"
+    Downloader 전용 규칙:
+    - 데이터 수집은 항상 KIS VIRTUAL을 사용한다.
+    - secrets.yaml에서 korea_invest.virtual을 읽어 KISSecrets 객체로 반환한다.
     """
-    if path is None:
-        path = CONFIG_DIR / "secrets.yaml"
+    from khms_trader.config import load_secrets
 
-    if not path.exists():
-        raise FileNotFoundError(f"secrets.yaml을 찾을 수 없습니다: {path}")
+    secrets = load_secrets()
+    ki = secrets.get("korea_invest")
+    if not isinstance(ki, dict):
+        raise KeyError("secrets.yaml에 'korea_invest' 섹션이 없습니다. (korea_invest.virtual/real)")
 
-    with path.open("r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    v = ki.get("virtual")
+    if not isinstance(v, dict):
+        raise KeyError("secrets.yaml에 'korea_invest.virtual' 섹션이 없습니다.")
 
-    if "kis" not in data:
-        raise KeyError("secrets.yaml에 'kis' 섹션이 없습니다. (kis.app_key 등)")
-
-    kis = data["kis"]
     return KISSecrets(
-        app_key=kis["app_key"],
-        app_secret=kis["app_secret"],
-        virtual=bool(kis.get("virtual", True)),
-        account_no=kis.get("account_no"),
-        account_product_code=kis.get("account_product_code"),
+        app_key=str(v.get("app_key", "")),
+        app_secret=str(v.get("app_secret", "")),
+        account_no=str(v.get("account_no", "")),
+        account_product_code=str(v.get("account_product_code", "")),
+        virtual=True,  # 강제
     )
+
+
 
 
 # --------------------------------------------------

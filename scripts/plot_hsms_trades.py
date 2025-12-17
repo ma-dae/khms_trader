@@ -31,7 +31,7 @@ from khms_trader.strategies.hsms import HSMSStrategy, HSMSConfig  # type: ignore
 # 설정: TOP 5 종목 리스트
 #   - 필요하면 여기에 심볼 추가/수정해서 다시 실행하면 됨
 # --------------------------------------------
-TOP5_SYMBOLS = ["347850", "376900", "030530", "226950", "437730"]
+TOP5_SYMBOLS = ["347850", "376900", "030530", "226950", "090710"]
 
 INITIAL_CASH = 10_000_000
 

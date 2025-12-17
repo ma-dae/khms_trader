@@ -1,0 +1,6 @@
+{"type": "PLAN_START", "mode": "next_open", "universe_limit": 200, "ts": "2025-12-17 10:13:42"}
+{"type": "PLAN_UNIVERSE", "mode": "next_open", "universe_file": "kosdaq_20251217.csv", "ts": "2025-12-17 10:13:42"}
+{"type": "PLAN_SYMBOLS", "mode": "next_open", "symbols_count": 50, "ts": "2025-12-17 10:13:42"}
+{"type": "PLAN_DONE", "mode": "next_open", "for_trading_day": "20251218", "universe_file": "kosdaq_20251217.csv", "plan_file": "next_open_plan_20251218.json", "buy_count": 1, "sell_count": 36, "error_count": 0, "ts": "2025-12-17 10:13:42"}
+{"type": "EXEC_START", "mode": "next_open", "dry_run": true, "qty": 1, "ts": "2025-12-17 10:14:34"}
+{"type": "EXEC_SKIP", "mode": "next_open", "reason": "plan_missing", "plan_file": "next_open_plan_20251217.json", "ts": "2025-12-17 10:14:34"}

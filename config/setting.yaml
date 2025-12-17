@@ -1,8 +1,8 @@
 # config/setting.yaml
 
 broker:
-  provider: korea_invest
-  env: virtual #virtual | real
+  provider: korea_invest # korea_invest | paper
+  env: virtual #virtual | real 
 
 
 # 기본 통화, 시장 등 (필요시 확장)

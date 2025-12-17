@@ -155,7 +155,6 @@ def run_paper_trading_auto_universe() -> None:
 # src/khms_trader/execution/runner.py 
 # virtual용 
 # src/khms_trader/execution/runner.py
-from __future__ import annotations
 
 import json
 import time

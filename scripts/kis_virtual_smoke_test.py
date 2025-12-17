@@ -14,51 +14,53 @@ def main():
     provider = broker_cfg.get("provider")
     env = broker_cfg.get("env", "virtual")
 
-    # 여기서 반드시 확인 (이 시점에 None이면 바로 에러로 종료)
     print("[DEBUG] broker_cfg:", broker_cfg)
-    print("[DEBUG] provider/env:", provider, env)
+    print("[DEBUG] broker.provider/env (trading):", provider, env)
 
-    if not provider:
-        raise KeyError(f"[FATAL] broker.provider is missing or None. broker_cfg={broker_cfg}")
-    
-    if provider not in s:
-        raise KeyError(f"[FATAL] provider '{provider}' not found in merged settings. top keys={list(s.keys())}")
+    # ✅ 스모크 테스트 목적 명시 (혼선 방지)
+    print("[INFO] This smoke test validates KIS VIRTUAL connectivity regardless of broker.provider.")
 
-    if env not in (s.get(provider) or {}):
-        raise KeyError(f"[FATAL] env '{env}' not found under '{provider}'. available envs={list((s.get(provider) or {}).keys())}")
+    # ✅ 핵심: provider/env로 creds를 찾지 말고, korea_invest.virtual을 직접 본다
+    ki = s.get("korea_invest") or {}
+    creds = ki.get("virtual") or {}
 
-
-    
-    creds = s[provider][env]
+    # 필수키 검증
+    required = ["app_key", "app_secret", "account_no", "account_product_code"]
+    missing = [k for k in required if not creds.get(k)]
+    if missing:
+        raise KeyError(
+            f"[FATAL] missing keys in settings['korea_invest']['virtual']: {missing}. "
+            f"available={list(creds.keys())}"
+        )
 
     app_key = creds["app_key"]
     app_secret = creds["app_secret"]
     account_no = creds["account_no"]
     account_product_code = creds.get("account_product_code")
-    base_url = creds["base_url"]
 
-    # ✅ 2) 여기 생성자 인자명이 당신 코드와 같아야 합니다.
+    # base_url은 코드가 내부에서 virtual이면 vts로 고정한다면 굳이 필요 없고,
+    # 필요하면 secrets.yaml에 넣고 여기서 읽어도 됨.
+    base_url = creds.get("base_url")  # optional
+
+    # ✅ 여기서 virtual=True 강제
     api = KoreaInvestBroker(
         app_key=app_key,
         app_secret=app_secret,
         account_no=account_no,
         account_product_code=account_product_code,
         base_url=base_url,
-        virtual=(env == "virtual"),
+        virtual=True,
     )
 
     print("[1/3] Token OK (if init fetches token)")
 
-    # ✅ 3) 잔고/예수금 조회 함수명은 코드에 맞게 수정
-    bal = api.get_cash()  
+    bal = api.get_cash()
     print("[2/3] Balance OK")
     print(bal)
 
-    # ✅ 4) 주문 1회: ETF 1주 같은 최소 단위 추천
-    symbol = "229200"  # KODEX 코스닥150 (예시)
+    symbol = "229200"
     qty = 1
 
-    # ✅ 5) 주문 함수명/파라미터는 코드에 맞게 수정
     req = OrderRequest(
         symbol=symbol,
         side="BUY",
