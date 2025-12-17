@@ -27,29 +27,33 @@ Next-Open(다음날 시가 기준) 전략을 수동 또는 자동으로 운영�
 2. 디렉토리 구조
 -----------------
 khms_trader/
- ├─ src/khms_trader/
- │   ├─ broker/                (KIS / Paper broker)
- │   ├─ data/                  (데이터 수집)
- │   ├─ execution/             (plan 실행 로직)
- │   ├─ notifications/         (Telegram notifier)
- │   └─ config/                (settings / secrets loader)
- │
- ├─ scripts/
- │   ├─ prepare_next_open_plan.py
- │   ├─ execute_next_open_plan.py
- │   ├─ run_virtual_live.py
- │   ├─ run_virtual_next_open_forever.py
- │   ├─ run_dashboard.py
- │   └─ tools/
- │       └─ sell_out_legacy.py (관리자용 계좌 정리 스크립트)
- │
- ├─ plans/                     (생성된 plan 파일)
- ├─ logs/                      (실행 로그)
- ├─ data/universe/             (유니버스 CSV)
- ├─ reports/                   (이벤트/리포트)
- ├─ settings.yaml
- ├─ secrets.yaml               (gitignore)
- └─ README.txt
+├─ src/
+│  └─ khms_trader/
+│     ├─ broker/                (KIS / Paper broker)
+│     ├─ data/                  (데이터 수집 로직)
+│     ├─ execution/             (plan 실행 로직)
+│     ├─ notifications/         (Telegram notifier)
+│     └─ config/                (settings / secrets loader)
+│
+├─ scripts/
+│  ├─ prepare_next_open_plan.py         (다음 거래일 plan 생성)
+│  ├─ execute_next_open_plan.py         (plan 기반 실제 주문 실행)
+│  ├─ run_virtual_live.py               (상태 점검/간이 실행)
+│  ├─ run_virtual_next_open_forever.py  (상시 스케줄러)
+│  ├─ run_dashboard.py                  (Streamlit 대시보드)
+│  └─ tools/
+│     └─ sell_out_legacy.py             (관리자용 계좌 정리 스크립트)
+│
+├─ plans/                     (생성된 next_open plan 파일)
+├─ logs/                      (실행 로그)
+├─ data/
+│  └─ universe/               (유니버스 CSV)
+├─ reports/                   (이벤트/리포트)
+│
+├─ settings.yaml              (일반 설정)
+├─ secrets.yaml               (API/Telegram 비밀정보, gitignore)
+└─ README.txt
+
 
 
 3. 환경 설정
